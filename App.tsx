@@ -34,8 +34,8 @@ export const useToast = () => useContext(ToastContext);
 
 const App: React.FC = () => {
   const [isDemoOpen, setIsDemoOpen] = useState(false);
-  const [view, setView] = useState<ViewType>('home');
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [view, setView] = useState<ViewType>('dashboard');
+  const [isLoggedIn, setIsLoggedIn] = useState(true);
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   useEffect(() => {

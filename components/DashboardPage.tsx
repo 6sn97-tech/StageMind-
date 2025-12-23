@@ -81,7 +81,8 @@ import {
   SmartphoneNfc,
   Globe2,
   QrCode,
-  ArrowRightLeft
+  ArrowRightLeft,
+  StickyNote
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -218,7 +219,7 @@ const KPICard: React.FC<{
       </div>
       <div className="mt-auto pt-6 border-t border-white/5 flex items-center justify-between flex-row-reverse relative z-10">
         <div className="text-right">
-          <p className="text-[9px] text-gray-500 font-bold font-plex uppercase tracking-widest">المستهدف اليومي</p>
+          <p className="text-[9px] text-slate-400 font-bold font-plex uppercase tracking-widest">المستهدف اليومي</p>
           <p className="text-sm font-black text-white/80 font-plex">{target}</p>
         </div>
         <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /><span className="text-[9px] font-black text-gray-600 font-plex">LIVE</span></div>
@@ -237,12 +238,32 @@ interface TheatreZone {
   seats: { id: string; heat: number; occupied: boolean }[];
 }
 
+interface TicketData {
+  id: string;
+  user: string;
+  show: string;
+  type: string;
+  price: string;
+  status: string;
+  date: string;
+  c: string;
+  notes?: string;
+}
+
 const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
-  const [activeTab, setActiveTab] = useState('الرئيسية');
+  const [activeTab, setActiveTab] = useState('إدارة التذاكر');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [selectedZone, setSelectedZone] = useState<TheatreZone | null>(null);
+
+  // Tickets state
+  const [tickets, setTickets] = useState<TicketData[]>([
+    { id: "#TK-9284", user: "سارة محمود", show: "أوبرا عايدة", type: "Royal VIP", price: "$450", status: "نشطة", date: "22/05/2024", c: "text-green-400", notes: "طلب مسبق لعصير الفواكه." },
+    { id: "#TK-9285", user: "علي القحطاني", show: "أوبرا عايدة", type: "Golden Circle", price: "$220", status: "تم الدخول", date: "22/05/2024", c: "text-blue-400", notes: "" },
+    { id: "#TK-9286", user: "ليلى حسن", show: "ليلة البيانو", type: "Standard", price: "$90", status: "ملغاة", date: "21/05/2024", c: "text-red-400", notes: "تم استرداد المبلغ." },
+    { id: "#TK-9287", user: "فهد الحربي", show: "أوبرا عايدة", type: "Royal VIP", price: "$450", status: "نشطة", date: "21/05/2024", c: "text-green-400", notes: "" }
+  ]);
 
   // Modals state
   const [isAddShowOpen, setIsAddShowOpen] = useState(false);
@@ -250,6 +271,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
   const [isShiftSummaryOpen, setIsShiftSummaryOpen] = useState(false);
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
+  const [isEditTicketOpen, setIsEditTicketOpen] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState<TicketData | null>(null);
 
   const { addToast } = useToast();
 
@@ -279,24 +302,25 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
     { label: 'الإعدادات', icon: <Settings className="w-5 h-5" /> },
   ];
 
-  // Helper to generate fake seat data
-  const generateSeats = (count: number, baseHeat: number) => {
-    return Array.from({ length: count }).map((_, i) => ({
-      id: `s-${i}`,
-      heat: Math.min(1, baseHeat + (Math.random() * 0.4 - 0.2)),
-      occupied: Math.random() < baseHeat
-    }));
-  };
+  const theatreZones: TheatreZone[] = useMemo(() => {
+    const generateSeats = (count: number, baseHeat: number) => {
+      return Array.from({ length: count }).map((_, i) => ({
+        id: `s-${i}`,
+        heat: Math.min(1, baseHeat + (Math.random() * 0.4 - 0.2)),
+        occupied: Math.random() < baseHeat
+      }));
+    };
 
-  const theatreZones: TheatreZone[] = [
-    { id: 'v1', name: 'جناح ملكي - يمين', occupancy: 100, revenue: '$12,400', heat: 0.95, capacity: 12, seats: generateSeats(12, 0.95) },
-    { id: 'v2', name: 'جناح ملكي - يسار', occupancy: 92, revenue: '$11,200', heat: 0.88, capacity: 12, seats: generateSeats(12, 0.92) },
-    { id: 'o1', name: 'الأوركسترا - مقدمة', occupancy: 98, revenue: '$45,000', heat: 0.98, capacity: 64, seats: generateSeats(64, 0.98) },
-    { id: 'o2', name: 'الأوركسترا - وسط', occupancy: 84, revenue: '$38,500', heat: 0.72, capacity: 96, seats: generateSeats(96, 0.84) },
-    { id: 'o3', name: 'الأوركسترا - خلفية', occupancy: 70, revenue: '$22,000', heat: 0.55, capacity: 120, seats: generateSeats(120, 0.70) },
-    { id: 'b1', name: 'الشرفة الأولى', occupancy: 88, revenue: '$28,400', heat: 0.82, capacity: 80, seats: generateSeats(80, 0.88) },
-    { id: 'b2', name: 'الشرفة الثانية', occupancy: 62, revenue: '$12,500', heat: 0.40, capacity: 100, seats: generateSeats(100, 0.62) },
-  ];
+    return [
+      { id: 'v1', name: 'جناح ملكي - يمين', occupancy: 100, revenue: '$12,400', heat: 0.95, capacity: 12, seats: generateSeats(12, 0.95) },
+      { id: 'v2', name: 'جناح ملكي - يسار', occupancy: 92, revenue: '$11,200', heat: 0.88, capacity: 12, seats: generateSeats(12, 0.92) },
+      { id: 'o1', name: 'الأوركسترا - مقدمة', occupancy: 98, revenue: '$45,000', heat: 0.98, capacity: 64, seats: generateSeats(64, 0.98) },
+      { id: 'o2', name: 'الأوركسترا - وسط', occupancy: 84, revenue: '$38,500', heat: 0.72, capacity: 96, seats: generateSeats(96, 0.84) },
+      { id: 'o3', name: 'الأوركسترا - خلفية', occupancy: 70, revenue: '$22,000', heat: 0.55, capacity: 120, seats: generateSeats(120, 0.70) },
+      { id: 'b1', name: 'الشرفة الأولى', occupancy: 88, revenue: '$28,400', heat: 0.82, capacity: 80, seats: generateSeats(80, 0.88) },
+      { id: 'b2', name: 'الشرفة الثانية', occupancy: 62, revenue: '$12,500', heat: 0.40, capacity: 100, seats: generateSeats(100, 0.62) },
+    ];
+  }, []);
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -310,7 +334,26 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
     addToast('تم توليد التقرير السحابي بنجاح.', 'success');
   };
 
-  // Views Implementation
+  const handleOpenEditTicket = (ticket: TicketData) => {
+    setSelectedTicket({ ...ticket });
+    setIsEditTicketOpen(true);
+  };
+
+  const handleSaveTicket = () => {
+    if (!selectedTicket) return;
+    
+    // Determine color based on status for consistency
+    let color = "text-gray-400";
+    if (selectedTicket.status === "نشطة") color = "text-green-400";
+    if (selectedTicket.status === "تم الدخول") color = "text-blue-400";
+    if (selectedTicket.status === "ملغاة") color = "text-red-400";
+    if (selectedTicket.status === "قيد المعالجة") color = "text-amber-gold";
+
+    setTickets(prev => prev.map(t => t.id === selectedTicket.id ? { ...selectedTicket, c: color } : t));
+    setIsEditTicketOpen(false);
+    addToast('تم تحديث بيانات التذكرة بنجاح.', 'success');
+  };
+
   const renderShowsView = () => (
     <div className="space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-700 text-right">
       <div className="flex items-center justify-between mb-8 flex-row-reverse">
@@ -409,12 +452,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
                </tr>
             </thead>
             <tbody className="divide-y divide-white/5 font-plex">
-               {[
-                 { id: "#TK-9284", user: "سارة محمود", show: "أوبرا عايدة", type: "Royal VIP", price: "$450", status: "نشطة", date: "22/05/2024", c: "text-green-400" },
-                 { id: "#TK-9285", user: "علي القحطاني", show: "أوبرا عايدة", type: "Golden Circle", price: "$220", status: "تم الدخول", date: "22/05/2024", c: "text-blue-400" },
-                 { id: "#TK-9286", user: "ليلى حسن", show: "ليلة البيانو", type: "Standard", price: "$90", status: "ملغاة", date: "21/05/2024", c: "text-red-400" },
-                 { id: "#TK-9287", user: "فهد الحربي", show: "أوبرا عايدة", type: "Royal VIP", price: "$450", status: "نشطة", date: "21/05/2024", c: "text-green-400" }
-               ].map((ticket, i) => (
+               {tickets.map((ticket, i) => (
                  <tr key={i} className="hover:bg-white/[0.01] transition-colors group">
                     <td className="p-6 font-black text-gray-500 group-hover:text-white transition-colors">{ticket.id}</td>
                     <td className="p-6">
@@ -434,9 +472,9 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
                     <td className="p-6 text-xs font-bold text-gray-500">{ticket.date}</td>
                     <td className="p-6">
                        <div className="flex gap-2 justify-center">
-                          <button onClick={() => addToast('معاينة كود التذكرة...', 'info')} className="p-3 bg-white/5 text-gray-500 hover:text-electric-teal rounded-xl border border-white/5 transition-all"><QrCode className="w-4 h-4" /></button>
-                          <button onClick={() => addToast('بدء عملية التحويل...', 'info')} className="p-3 bg-white/5 text-gray-500 hover:text-amber-gold rounded-xl border border-white/5 transition-all"><ArrowRightLeft className="w-4 h-4" /></button>
-                          <button className="p-3 bg-white/5 text-gray-500 hover:text-white rounded-xl border border-white/5 transition-all"><MoreVertical className="w-4 h-4" /></button>
+                          <button onClick={() => addToast('معاينة كود التذكرة...', 'info')} className="p-3 bg-white/5 text-gray-500 hover:text-electric-teal rounded-xl border border-white/5 transition-all" title="معاينة QR Code"><QrCode className="w-4 h-4" /></button>
+                          <button onClick={() => handleOpenEditTicket(ticket)} className="p-3 bg-white/5 text-gray-500 hover:text-amber-gold rounded-xl border border-white/5 transition-all" title="تعديل الحالة والبيانات"><Edit3 className="w-4 h-4" /></button>
+                          <button onClick={() => addToast('بدء عملية التحويل...', 'info')} className="p-3 bg-white/5 text-gray-500 hover:text-blue-400 rounded-xl border border-white/5 transition-all" title="تحويل التذكرة"><ArrowRightLeft className="w-4 h-4" /></button>
                        </div>
                     </td>
                  </tr>
@@ -444,7 +482,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
             </tbody>
          </table>
          <div className="p-8 bg-white/[0.01] border-t border-white/5 flex items-center justify-between flex-row-reverse">
-            <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest font-plex">عرض 4 من أصل 4,240 تذكرة</p>
+            <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest font-plex">عرض {tickets.length} من أصل 4,240 تذكرة</p>
             <div className="flex gap-2">
                <button className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black text-gray-500 hover:text-white transition-all">التالي</button>
                <button className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black text-white transition-all">السابق</button>
@@ -1275,6 +1313,92 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
               ))}
            </div>
         </div>
+      </OperationalModal>
+
+      {/* Edit Ticket Modal */}
+      <OperationalModal 
+        isOpen={isEditTicketOpen} 
+        onClose={() => setIsEditTicketOpen(false)} 
+        title="تحديث بيانات التذكرة" 
+        subtitle="Ticketing Logistics Adjustment"
+        icon={<Edit3 className="w-8 h-8" />}
+      >
+        {selectedTicket && (
+          <div className="space-y-8 text-right max-w-2xl mx-auto font-plex">
+            <div className="flex items-center justify-between flex-row-reverse mb-4 p-4 bg-white/5 rounded-2xl border border-white/5">
+              <div>
+                <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">رقم التذكرة</p>
+                <p className="text-2xl font-black text-white">{selectedTicket.id}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">العرض الحالي</p>
+                <p className="text-lg font-black text-electric-teal">{selectedTicket.show}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mr-3 block">اسم العميل / التخصيص</label>
+                <div className="relative">
+                  <User className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <input 
+                    type="text" 
+                    value={selectedTicket.user}
+                    onChange={(e) => setSelectedTicket({ ...selectedTicket, user: e.target.value })}
+                    className="w-full bg-white/5 border border-white/10 rounded-[20px] pr-14 pl-6 py-5 text-white outline-none text-right transition-all focus:border-electric-teal" 
+                    placeholder="اسم العميل"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mr-3 block">حالة التذكرة اللوجستية</label>
+                <div className="relative">
+                  <ChevronDown className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <select 
+                    value={selectedTicket.status}
+                    onChange={(e) => setSelectedTicket({ ...selectedTicket, status: e.target.value })}
+                    className="w-full bg-white/5 border border-white/10 rounded-[20px] px-8 py-5 text-white outline-none appearance-none text-right transition-all focus:border-electric-teal cursor-pointer"
+                  >
+                    <option value="نشطة">نشطة (Active)</option>
+                    <option value="تم الدخول">تم الدخول (Used)</option>
+                    <option value="ملغاة">ملغاة (Canceled)</option>
+                    <option value="قيد المعالجة">قيد المعالجة (Processing)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mr-3 block">ملاحظات تشغيلية إضافية</label>
+              <div className="relative">
+                <StickyNote className="absolute right-5 top-6 w-4 h-4 text-gray-500" />
+                <textarea 
+                  rows={4}
+                  value={selectedTicket.notes || ""}
+                  onChange={(e) => setSelectedTicket({ ...selectedTicket, notes: e.target.value })}
+                  className="w-full bg-white/5 border border-white/10 rounded-[20px] pr-14 pl-6 py-6 text-white outline-none text-right transition-all focus:border-electric-teal resize-none" 
+                  placeholder="أضف أي ملاحظات تهم فريق التنظيم أو الأمن..."
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-4 pt-4">
+              <button 
+                onClick={handleSaveTicket}
+                className="flex-1 bg-electric-teal text-[#0A192F] font-black py-6 rounded-[28px] hover:shadow-[0_0_50px_rgba(100,255,218,0.3)] transition-all active:scale-95 text-lg font-plex"
+              >
+                تأكيد التعديلات اللوجستية
+              </button>
+              <button 
+                onClick={() => setIsEditTicketOpen(false)}
+                className="px-10 py-6 bg-white/5 text-gray-500 border border-white/5 rounded-[28px] font-black text-lg hover:text-white transition-all active:scale-95 font-plex"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        )}
       </OperationalModal>
     </div>
   );
